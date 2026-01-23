@@ -364,3 +364,59 @@ class LangfuseOtelLogger(OpenTelemetry):
         Langfuse should not receive service failure logs.
         """
         pass
+
+    def increment_callback_logging_failure(
+        self,
+        callback_name: str,
+    ):
+        """
+        Log callback logging failures as OpenTelemetry events in Langfuse.
+        
+        This method creates an OTEL event/span to track when logging to a callback fails.
+        Unlike Prometheus which uses counters, Langfuse OTEL tracks these as discrete events
+        that can be queried and analyzed in the Langfuse dashboard.
+        
+        Args:
+            callback_name: Name of the callback that failed (e.g., "S3Logger", "DynamoDBLogger")
+        """
+        try:
+            from datetime import datetime
+
+            verbose_logger.debug(
+                f"Langfuse OTEL: Logging callback failure for {callback_name}"
+            )
+            
+            # Get the tracer from the parent OpenTelemetry class
+            if not hasattr(self, "tracer") or self.tracer is None:
+                verbose_logger.debug(
+                    f"Langfuse OTEL: No tracer available to log callback failure for {callback_name}"
+                )
+                return
+            
+            # Create a span to track the callback failure
+            with self.tracer.start_as_current_span(
+                "callback_logging_failure"
+            ) as span:
+                # Set span attributes
+                span.set_attribute("callback_name", callback_name)
+                span.set_attribute("event_type", "callback_logging_failure")
+                span.set_attribute("timestamp", datetime.now().isoformat())
+                span.set_attribute("level", "ERROR")
+                
+                # Add an event to the span
+                span.add_event(
+                    name="callback_logging_failure",
+                    attributes={
+                        "callback_name": callback_name,
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
+            
+            verbose_logger.debug(
+                f"Langfuse OTEL: Successfully logged callback failure event for {callback_name}"
+            )
+        except Exception as e:
+            # Don't let logging failures block the main flow
+            verbose_logger.debug(
+                f"Langfuse OTEL: Failed to log callback failure event for {callback_name}: {str(e)}"
+            )

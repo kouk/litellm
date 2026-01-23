@@ -802,7 +802,11 @@ class CustomLogger:  # https://docs.litellm.ai/docs/observability/custom_callbac
 
     def handle_callback_failure(self, callback_name: str):
         """
-        Handle callback logging failures by incrementing Prometheus metrics.
+        Handle callback logging failures by tracking them in observability tools.
+
+        This method logs callback failures to configured observability platforms:
+        - Prometheus: Increments the litellm_callback_logging_failures_metric counter
+        - Langfuse: Creates an event with level="ERROR" to track the failure
 
         Call this method in exception handlers within your callback when logging fails.
         """
@@ -822,7 +826,7 @@ class CustomLogger:  # https://docs.litellm.ai/docs/observability/custom_callbac
 
             verbose_logger.debug(
                 f"No callback with increment_callback_logging_failure method found for {callback_name}. "
-                "Ensure 'prometheus' is in your callbacks config."
+                "Ensure 'prometheus' or 'langfuse' is in your callbacks config."
             )
 
         except Exception as e:

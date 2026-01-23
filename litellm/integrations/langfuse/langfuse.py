@@ -1073,6 +1073,48 @@ class LangFuseLogger:
             verbose_logger.debug(f"Logged guardrail information as span: {span}")
             span.end()
 
+    def increment_callback_logging_failure(
+        self,
+        callback_name: str,
+    ):
+        """
+        Log callback logging failures as events in Langfuse.
+        
+        This method creates an event in Langfuse to track when logging to a callback fails.
+        Unlike Prometheus which uses counters, Langfuse tracks these as discrete events
+        that can be queried and analyzed in the Langfuse dashboard.
+        
+        Args:
+            callback_name: Name of the callback that failed (e.g., "S3Logger", "DynamoDBLogger")
+        """
+        try:
+            verbose_logger.debug(
+                f"Langfuse: Logging callback failure for {callback_name}"
+            )
+            
+            # Create an event in Langfuse to track the callback failure
+            self.Langfuse.event(
+                name="callback_logging_failure",
+                output={
+                    "callback_name": callback_name,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                metadata={
+                    "callback_name": callback_name,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                level="ERROR",
+            )
+            
+            verbose_logger.debug(
+                f"Langfuse: Successfully logged callback failure event for {callback_name}"
+            )
+        except Exception as e:
+            # Don't let logging failures block the main flow
+            verbose_logger.debug(
+                f"Langfuse: Failed to log callback failure event for {callback_name}: {str(e)}"
+            )
+
 
 def _add_prompt_to_generation_params(
     generation_params: dict,

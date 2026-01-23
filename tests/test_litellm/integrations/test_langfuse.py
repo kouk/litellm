@@ -487,3 +487,58 @@ def test_max_langfuse_clients_limit():
 
         # Counter should still be 2 (third client failed to initialize)
         assert litellm.initialized_langfuse_clients == 2
+
+
+def test_langfuse_callback_logging_failure():
+    """
+    Test that the increment_callback_logging_failure method creates an event in Langfuse.
+    
+    This test verifies that callback failures are tracked as events in Langfuse,
+    similar to how Prometheus tracks them as counter metrics.
+    """
+    with patch.dict(
+        "os.environ",
+        {
+            "LANGFUSE_SECRET_KEY": "test-secret-key",
+            "LANGFUSE_PUBLIC_KEY": "test-public-key",
+            "LANGFUSE_HOST": "https://test.langfuse.com",
+        },
+    ):
+        # Create a mock Langfuse client
+        mock_langfuse_client = MagicMock()
+        mock_langfuse_client.client = MagicMock()
+        mock_langfuse_client.event = MagicMock()
+        
+        # Initialize the logger
+        logger = LangFuseLogger(
+            langfuse_public_key="test-public-key",
+            langfuse_secret="test-secret-key",
+            langfuse_host="https://test.langfuse.com",
+        )
+        
+        # Replace the Langfuse client with our mock
+        logger.Langfuse = mock_langfuse_client
+        
+        # Call the method
+        callback_name = "S3Logger"
+        logger.increment_callback_logging_failure(callback_name=callback_name)
+        
+        # Verify that an event was created
+        mock_langfuse_client.event.assert_called_once()
+        
+        # Get the call arguments
+        call_args = mock_langfuse_client.event.call_args
+        
+        # Verify the event name
+        assert call_args.kwargs["name"] == "callback_logging_failure"
+        
+        # Verify the metadata contains the callback name
+        assert call_args.kwargs["metadata"]["callback_name"] == callback_name
+        
+        # Verify the level is ERROR
+        assert call_args.kwargs["level"] == "ERROR"
+        
+        # Verify timestamp is present in metadata
+        assert "timestamp" in call_args.kwargs["metadata"]
+        
+        print(f"✓ Langfuse callback failure tracking test passed for {callback_name}")
